@@ -11,12 +11,15 @@ const port = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
-const db = mysql.createConnection({
+const db = mysql.createPool({
     host: process.env.MYSQLHOST,
     port: process.env.MYSQLPORT,
     user: process.env.MYSQLUSER,
     password: process.env.MYSQLPASSWORD,
-    database: process.env.MYSQLDATABASE
+    database: process.env.MYSQLDATABASE,
+    waitForConnections: true,
+    connectionLimit: 10,
+    queueLimit: 0
 });
 
 console.log('Attempting to connect with:');
@@ -25,20 +28,20 @@ console.log('Port:', process.env.MYSQLPORT);
 console.log('User:', process.env.MYSQLUSER);
 console.log('Database:', process.env.MYSQLDATABASE);
 
-db.connect((err) => {
-    if (err) {
-        console.error('Database connection failed:', err);
-        console.error('Error code:', err.code);
-        console.error('Error message:', err.message);
-        return;
-    }
-    console.log('Connected to MySQL database successfully!');
-});
+db.getConnection()
+    .then(conn => {
+        console.log("Connected to MySQL database via pool successfully!");
+        conn.release();
+    })
+    .catch(err => {
+        console.error("Pool connection failed:", err);
+    });
 
 async function initializeDatabase() {
-    try {
-        const connection = await pool.getConnection();
+    let connection;
 
+    try {
+        connection = await db.getConnection();
         await connection.query(`
             CREATE TABLE IF NOT EXISTS projects (
             id INT AUTO_INCREMENT PRIMARY KEY,
@@ -53,11 +56,11 @@ async function initializeDatabase() {
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
             )
     `);
-
-        console.log('Database table initialized');
-        connection.release();
+        console.log("Database table initialized");
     } catch (error) {
-        console.error('Error initializing database:', error);
+        console.error("Error initializing database:", error);
+    } finally {
+        if (connection) connection.release();
     }
 }
 
