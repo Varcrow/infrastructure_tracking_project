@@ -34,7 +34,6 @@ db.connect((err) => {
     }
     console.log('Connected to MySQL database successfully!');
 });
-testConnection();
 
 async function initializeDatabase() {
     try {
