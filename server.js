@@ -1,37 +1,39 @@
 import express from 'express';
-import mysql from 'mysql2/promise';
+import mysql from 'mysql2';
 import cors from 'cors';
 import dotenv from 'dotenv';
 
 dotenv.config();
 
 const app = express();
-const PORT = process.env.PORT;
+const port = process.env.PORT || 3000;
 
-// Middleware
 app.use(cors());
 app.use(express.json());
 
-const dbConfig = {
+const db = mysql.createConnection({
     host: process.env.MYSQLHOST,
     port: process.env.MYSQLPORT,
     user: process.env.MYSQLUSER,
     password: process.env.MYSQLPASSWORD,
-    database: process.env.MYSQLDATABASE,
-};
+    database: process.env.MYSQLDATABASE
+});
 
-const pool = mysql.createPool(dbConfig);
+console.log('Attempting to connect with:');
+console.log('Host:', process.env.MYSQLHOST);
+console.log('Port:', process.env.MYSQLPORT);
+console.log('User:', process.env.MYSQLUSER);
+console.log('Database:', process.env.MYSQLDATABASE);
 
-async function testConnection() {
-    try {
-        const connection = await pool.getConnection();
-        console.log('Connected to MySQL database!');
-        connection.release();
-    } catch (error) {
-        console.error('Database connection error:', error);
+db.connect((err) => {
+    if (err) {
+        console.error('Database connection failed:', err);
+        console.error('Error code:', err.code);
+        console.error('Error message:', err.message);
+        return;
     }
-}
-
+    console.log('Connected to MySQL database successfully!');
+});
 testConnection();
 
 async function initializeDatabase() {
@@ -189,6 +191,6 @@ app.get('/api/stats', (req, res) => {
     });
 });
 
-app.listen(PORT, () => {
-    console.log(`Infrastructure API listening on port ${PORT}`);
+app.listen(port, () => {
+    console.log(`Infrastructure API listening on port ${port}`);
 });
