@@ -46,6 +46,9 @@ async function initializeDatabase() {
             budget DECIMAL(15, 2) NOT NULL,
             status ENUM('planning', 'in-progress', 'completed', 'on-hold') NOT NULL,
             province VARCHAR(100) NOT NULL,
+            city VARCHAR(255) NOT NULL,
+            latitude DECIMAL NOT NULL,
+            longitude DECIMAL NOT NULL,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
             )
@@ -121,10 +124,10 @@ app.get('/api/projects/budget/range', (req, res) => {
 
 // Create new project
 app.post('/api/projects', (req, res) => {
-    const { name, budget, status, province } = req.body;
-    const sql = 'INSERT INTO projects (name, budget, status, province) VALUES (?, ?, ?, ?)';
+    const { name, budget, status, province, city, latitude, longitude } = req.body;
+    const sql = 'INSERT INTO projects (name, budget, status, province, city, latitude, longitude) VALUES (?, ?, ?, ?, ?, ?, ?)';
 
-    db.query(sql, [name, budget, status, province], (err, result) => {
+    db.query(sql, [name, budget, status, province, city, latitude, longitude], (err, result) => {
         if (err) {
             return res.status(500).json({ error: err.message });
         }
@@ -133,7 +136,10 @@ app.post('/api/projects', (req, res) => {
             name,
             budget,
             status,
-            province
+            province,
+            city,
+            latitude,
+            longitude
         });
     });
 });
