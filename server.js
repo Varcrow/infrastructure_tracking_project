@@ -70,7 +70,25 @@ async function initializeDatabase() {
                 number VARCHAR(100)
             )
         `);
-        console.log("Database table initialized.");
+
+        // Check for and create assignments table if needed
+        await conn.query(`
+            CREATE TABLE IF NOT EXISTS Assignments (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                project_id INT NOT NULL,
+                company_id INT NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    
+                FOREIGN KEY (project_id) REFERENCES projects(id)
+                ON DELETE CASCADE ON UPDATE CASCADE,
+    
+                FOREIGN KEY (company_id) REFERENCES companies(id)
+                ON DELETE CASCADE ON UPDATE CASCADE,
+
+                UNIQUE KEY unique_project_company (project_id, company_id) -- prevents duplicates
+        `);
+
+        console.log("Database tables initialized.");
     } catch (error) {
         console.error("Error initializing database:", error);
     } finally {
