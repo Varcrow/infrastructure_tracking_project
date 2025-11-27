@@ -166,24 +166,6 @@ app.post('/api/projects', async (req, res) => {
     }
 });
 
-app.put('/api/projects/:id', async (req, res) => {
-    const { name, budget, status, province } = req.body;
-
-    try {
-        const [result] = await db.query(
-            "UPDATE projects SET name = ?, budget = ?, status = ?, province = ? WHERE id = ?",
-            [name, budget, status, province, req.params.id]
-        );
-
-        if (result.affectedRows === 0)
-            return res.status(404).json({ error: "Project not found" });
-
-        res.json({ message: "Project updated successfully" });
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-});
-
 app.delete('/api/projects/:id', async (req, res) => {
     try {
         const [result] = await db.query("DELETE FROM projects WHERE id = ?", [req.params.id]);
@@ -211,6 +193,79 @@ app.get('/api/stats', async (req, res) => {
         `);
 
         res.json(rows);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// === Table 2: Companies ===
+
+// ~~~ queries ~~~
+
+// All companies
+app.get('/api/companies', async (req, res) => {
+    try {
+        const [rows] = await db.query("SELECT * FROM companies");
+        res.json(rows);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Get company by id
+app.get('/api/company/:id', async (req, res) => {
+    try {
+        const [rows] = await db.query("SELECT * FROM companies WHERE id = ?", [req.params.id]);
+        if (rows.length === 0) return res.status(404).json({ error: "Company not found" });
+        res.json(rows[0]);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Get company by province
+app.get('/api/company/province/:province', async (req, res) => {
+    try {
+        const [rows] = await db.query("SELECT * FROM companies WHERE province = ?", [req.params.province]);
+        res.json(rows);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// ~~~ table manip ~~~
+
+app.post('/api/companies', async (req, res) => {
+    const { name, province, city, email, number } = req.body;
+
+    try {
+        const [result] = await db.query(
+            `INSERT INTO companies (name, province, city, email, number) 
+             VALUES (?, ?, ?, ?, ?)`,
+            [name, province, city, email, number]
+        );
+
+        res.status(201).json({
+            id: result.insertId,
+            name,
+            province,
+            city,
+            email,
+            number,
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.delete('/api/companies/:id', async (req, res) => {
+    try {
+        const [result] = await db.query("DELETE FROM companies WHERE id = ?", [req.params.id]);
+
+        if (result.affectedRows === 0)
+            return res.status(404).json({ error: "Company not found" });
+
+        res.json({ message: "Company deleted successfully" });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
