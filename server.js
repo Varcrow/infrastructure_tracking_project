@@ -42,6 +42,8 @@ async function initializeDatabase() {
     let conn;
     try {
         conn = await db.getConnection();
+
+        // Check for and create projects table if needed
         await conn.query(`
             CREATE TABLE IF NOT EXISTS projects (
                 id INT AUTO_INCREMENT PRIMARY KEY,
@@ -56,6 +58,18 @@ async function initializeDatabase() {
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
             )
         `);
+
+        // Check for and create companies table if needed
+        await conn.query(`
+            CREATE TABLE IF NOT EXISTS companies (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                name VARCHAR(255) NOT NULL,
+                province VARCHAR(100) NOT NULL,
+                city VARCHAR(255) NOT NULL,
+                email VARCHAR(100),
+                number VARCHAR(100)
+            )
+        `);
         console.log("Database table initialized.");
     } catch (error) {
         console.error("Error initializing database:", error);
@@ -66,7 +80,11 @@ async function initializeDatabase() {
 
 initializeDatabase();
 
-// Get all projects
+// === Table 1: Projects ===
+
+// ~~~ queries ~~~
+
+// All projects
 app.get('/api/projects', async (req, res) => {
     try {
         const [rows] = await db.query("SELECT * FROM projects");
@@ -76,7 +94,7 @@ app.get('/api/projects', async (req, res) => {
     }
 });
 
-// Get project by ID
+// Get project by id
 app.get('/api/projects/:id', async (req, res) => {
     try {
         const [rows] = await db.query("SELECT * FROM projects WHERE id = ?", [req.params.id]);
@@ -107,7 +125,7 @@ app.get('/api/projects/status/:status', async (req, res) => {
     }
 });
 
-// Get projects within budget range
+// Get projects between a certain budget range
 app.get('/api/projects/budget/range', async (req, res) => {
     const { min = 0, max = 999999999 } = req.query;
     try {
@@ -121,7 +139,8 @@ app.get('/api/projects/budget/range', async (req, res) => {
     }
 });
 
-// Create new project
+// ~~~ table manip ~~~
+
 app.post('/api/projects', async (req, res) => {
     const { name, budget, status, province, city, latitude, longitude } = req.body;
 
@@ -147,7 +166,6 @@ app.post('/api/projects', async (req, res) => {
     }
 });
 
-// Update project
 app.put('/api/projects/:id', async (req, res) => {
     const { name, budget, status, province } = req.body;
 
@@ -166,7 +184,6 @@ app.put('/api/projects/:id', async (req, res) => {
     }
 });
 
-// Delete project
 app.delete('/api/projects/:id', async (req, res) => {
     try {
         const [result] = await db.query("DELETE FROM projects WHERE id = ?", [req.params.id]);
@@ -180,7 +197,6 @@ app.delete('/api/projects/:id', async (req, res) => {
     }
 });
 
-// Stats endpoint
 app.get('/api/stats', async (req, res) => {
     try {
         const [rows] = await db.query(`
@@ -200,6 +216,7 @@ app.get('/api/stats', async (req, res) => {
     }
 });
 
+// === Enable server ===
 app.listen(port, () => {
     console.log(`Infrastructure API listening on port ${port}`);
 });
