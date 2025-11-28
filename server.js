@@ -70,7 +70,26 @@ async function initializeDatabase() {
                 number VARCHAR(100)
             )
         `);
-        console.log("Database table initialized.");
+
+        // Check for and create assignments table if needed
+        await conn.query(`
+            CREATE TABLE IF NOT EXISTS assignments (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                project_id INT NOT NULL,
+                company_id INT NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+                FOREIGN KEY (project_id) REFERENCES projects(id)
+                ON DELETE CASCADE ON UPDATE CASCADE,
+
+                FOREIGN KEY (company_id) REFERENCES companies(id)
+                ON DELETE CASCADE ON UPDATE CASCADE,
+
+                UNIQUE KEY unique_project_company (project_id, company_id)
+            )
+        `);
+
+        console.log("Database tables initialized.");
     } catch (error) {
         console.error("Error initializing database:", error);
     } finally {
@@ -266,6 +285,159 @@ app.delete('/api/companies/:id', async (req, res) => {
             return res.status(404).json({ error: "Company not found" });
 
         res.json({ message: "Company deleted successfully" });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// === Table 3: Assignments ===
+
+// ~~~ queries ~~~
+
+// Get all assignments with some project and company data
+app.get('/api/assignments', async (req, res) => {
+    try {
+        const [rows] = await db.query(`
+            SELECT 
+                a.created_at,
+                p.name AS project_name,
+                p.status AS project_status,
+                p.province AS project_province,
+                p.city AS project_city,
+                c.name AS company_name,
+            FROM assignments a
+            JOIN projects p ON a.project_id = p.id
+            JOIN companies c ON a.company_id = c.id
+            ORDER BY a.created_at DESC
+        `);
+        res.json(rows);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Get assignment by id
+app.get('/api/assignments/:id', async (req, res) => {
+    try {
+        const [rows] = await db.query(`
+            SELECT 
+                a.id,
+                a.project_id,
+                a.company_id,
+                a.created_at,
+                p.name AS project_name,
+                p.budget AS project_budget,
+                p.status AS project_status,
+                c.name AS company_name
+            FROM assignments a
+            JOIN projects p ON a.project_id = p.id
+            JOIN companies c ON a.company_id = c.id
+            WHERE a.id = ?
+        `, [req.params.id]);
+
+        if (rows.length === 0) return res.status(404).json({ error: "Assignment not found" });
+        res.json(rows[0]);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Get all assignments for a specific project
+app.get('/api/assignments/project/:project_id', async (req, res) => {
+    try {
+        const [rows] = await db.query(`
+            SELECT 
+                a.id,
+                a.project_id,
+                a.company_id,
+                a.created_at,
+                c.name AS company_name,
+                c.province AS company_province,
+                c.city AS company_city,
+                c.email AS company_email,
+                c.number AS company_number
+            FROM assignments a
+            JOIN companies c ON a.company_id = c.id
+            WHERE a.project_id = ?
+        `, [req.params.project_id]);
+        res.json(rows);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Get all assignments for a specific company
+app.get('/api/assignments/company/:company_id', async (req, res) => {
+    try {
+        const [rows] = await db.query(`
+            SELECT 
+                a.id,
+                a.project_id,
+                a.company_id,
+                a.created_at,
+                p.name AS project_name,
+                p.budget AS project_budget,
+                p.status AS project_status,
+                p.province AS project_province,
+                p.city AS project_city
+            FROM assignments a
+            JOIN projects p ON a.project_id = p.id
+            WHERE a.company_id = ?
+        `, [req.params.company_id]);
+        res.json(rows);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// ~~~ table manip ~~~
+
+// Create new assignment
+app.post('/api/assignments', async (req, res) => {
+    const { project_id, company_id } = req.body;
+
+    try {
+        // Check if project exists
+        const [projectCheck] = await db.query("SELECT id FROM projects WHERE id = ?", [project_id]);
+        if (projectCheck.length === 0) {
+            return res.status(404).json({ error: "Project not found" });
+        }
+
+        // Check if company exists
+        const [companyCheck] = await db.query("SELECT id FROM companies WHERE id = ?", [company_id]);
+        if (companyCheck.length === 0) {
+            return res.status(404).json({ error: "Company not found" });
+        }
+
+        // Create assignment
+        const [result] = await db.query(
+            `INSERT INTO assignments (project_id, company_id) VALUES (?, ?)`,
+            [project_id, company_id]
+        );
+
+        res.status(201).json({
+            id: result.insertId,
+            project_id,
+            company_id,
+            message: "Assignment created successfully"
+        });
+    } catch (err) {
+        if (err.code === 'ER_DUP_ENTRY') {
+            return res.status(409).json({ error: "This company is already assigned to this project" });
+        }
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Delete assignment
+app.delete('/api/assignments/:id', async (req, res) => {
+    try {
+        const [result] = await db.query("DELETE FROM assignments WHERE id = ?", [req.params.id]);
+
+        if (result.affectedRows === 0)
+            return res.status(404).json({ error: "Assignment not found" });
+
+        res.json({ message: "Assignment deleted successfully" });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
