@@ -307,7 +307,7 @@ app.get('/api/assignments', async (req, res) => {
                 p.status AS project_status,
                 p.province AS project_province,
                 p.city AS project_city,
-                c.name AS company_name,
+                c.name AS company_name
             FROM assignments a
             JOIN projects p ON a.project_id = p.id
             JOIN companies c ON a.company_id = c.id
