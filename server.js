@@ -299,6 +299,9 @@ app.get('/api/assignments', async (req, res) => {
     try {
         const [rows] = await db.query(`
             SELECT 
+                a.id,
+                a.project_id,
+                a.company_id,
                 a.created_at,
                 p.name AS project_name,
                 p.status AS project_status,
