@@ -121,13 +121,11 @@ app.get('/api/projects', async (req, res) => {
 app.post('/api/projects', async (req, res) => {
     const { name, budget, status, province, city, latitude, longitude } = req.body;
 
-    filter.clean(name);
-
     try {
         const [result] = await db.query(
             `INSERT INTO projects (name, budget, status, province, city, latitude, longitude) 
              VALUES (?, ?, ?, ?, ?, ?, ?)`,
-            [name, budget, status, province, city, latitude, longitude]
+            [filter.clean(name), budget, status, province, city, latitude, longitude]
         );
 
         res.status(201).json({
