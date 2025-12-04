@@ -2,11 +2,14 @@ import express from 'express';
 import mysql from 'mysql2/promise';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import { Filter } from 'bad-words';
 
 dotenv.config();
 
 const app = express();
 const port = process.env.PORT || 3000;
+// For censoring thy gamer words
+const filter = Filter();
 
 app.use(cors());
 app.use(express.json());
@@ -117,6 +120,8 @@ app.get('/api/projects', async (req, res) => {
 
 app.post('/api/projects', async (req, res) => {
     const { name, budget, status, province, city, latitude, longitude } = req.body;
+
+    filter.clean(name);
 
     try {
         const [result] = await db.query(
