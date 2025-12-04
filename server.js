@@ -2,6 +2,8 @@ import express from 'express';
 import mysql from 'mysql2/promise';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import multer from 'multer';
+import xml2js from 'xml2js';
 import { Filter } from 'bad-words';
 
 dotenv.config();
@@ -102,6 +104,196 @@ async function initializeDatabase() {
 
 initializeDatabase();
 
+// === Import section ===
+
+const upload = multer({
+    storage: multer.memoryStorage(),
+    limits: {
+        fileSize: 5 * 1024 * 1024 // 5MB limit
+    },
+    fileFilter: (req, file, cb) => {
+        const allowedTypes = ['application/json', 'text/xml', 'application/xml'];
+        const allowedExtensions = ['.json', '.xml'];
+
+        const fileExtension = file.originalname.toLowerCase().slice(file.originalname.lastIndexOf('.'));
+
+        if (allowedTypes.includes(file.mimetype) || allowedExtensions.includes(fileExtension)) {
+            cb(null, true);
+        } else {
+            cb(new Error('Invalid file type. Only JSON and XML files are allowed.'));
+        }
+    }
+});
+
+// Parse JSON
+function parseJSONProjects(content) {
+    const data = JSON.parse(content);
+    const projectsArray = Array.isArray(data) ? data : (data.projects || []);
+
+    return projectsArray.map(project => ({
+        name: project.name,
+        budget: parseFloat(project.budget),
+        status: project.status,
+        province: project.province,
+        city: project.city,
+        longitude: project.longitude,
+        latitude: project.latitude
+    }));
+}
+
+// Parse XML
+async function parseXMLProjects(content) {
+    const parser = new xml2js.Parser({
+        explicitArray: false,
+        trim: true
+    });
+
+    try {
+        const result = await parser.parseStringPromise(content);
+
+        let projectsArray = [];
+        if (result.projects && result.projects.project) {
+            projectsArray = Array.isArray(result.projects.project)
+                ? result.projects.project
+                : [result.projects.project];
+        }
+
+        return projectsArray.map(project => ({
+            name: project.name,
+            budget: parseFloat(project.budget),
+            status: project.status,
+            province: project.province,
+            city: project.city,
+            longitude: project.longitude,
+            latitude: project.latitude
+        }));
+    } catch (error) {
+        throw new Error('Invalid XML format: ' + error.message);
+    }
+}
+
+// Validate project data
+function validateProject(project) {
+    const validStatuses = ['planning', 'in-progress', 'completed', 'on-hold'];
+    const validProvinces = [
+        'Alberta', 'British Columbia', 'Manitoba', 'New Brunswick',
+        'Newfoundland and Labrador', 'Nova Scotia', 'Ontario',
+        'Prince Edward Island', 'Quebec', 'Saskatchewan'
+    ];
+
+    const errors = [];
+
+    if (!project.name || project.name.trim() === '') {
+        errors.push('Project name is required');
+    }
+
+    if (!project.budget || isNaN(project.budget) || project.budget <= 0) {
+        errors.push('Valid budget is required');
+    }
+
+    if (!validStatuses.includes(project.status)) {
+        errors.push(`Status must be one of: ${validStatuses.join(', ')}`);
+    }
+
+    if (!validProvinces.includes(project.province)) {
+        errors.push('Invalid province');
+    }
+
+    if (!project.city || project.city.trim() === '') {
+        errors.push('City is required');
+    }
+
+    return errors;
+}
+
+// Import projects endpoint
+app.post('/api/projects/import', upload.single('file'), async (req, res) => {
+    try {
+        if (!req.file) {
+            return res.status(400).json({ error: 'No file uploaded' });
+        }
+
+        const fileContent = req.file.buffer.toString('utf-8');
+        const fileExtension = req.file.originalname.toLowerCase().slice(req.file.originalname.lastIndexOf('.'));
+
+        let projects = [];
+
+        // Parse based on file type
+        if (fileExtension === '.json') {
+            projects = parseJSONProjects(fileContent);
+        } else if (fileExtension === '.xml') {
+            projects = await parseXMLProjects(fileContent);
+        } else {
+            return res.status(400).json({ error: 'Unsupported file format' });
+        }
+
+        if (projects.length === 0) {
+            return res.status(400).json({ error: 'No valid projects found in file' });
+        }
+
+        // Process each project
+        const results = {
+            successful: [],
+            failed: []
+        };
+
+        for (const project of projects) {
+            try {
+                // Validate project
+                const validationErrors = validateProject(project);
+                if (validationErrors.length > 0) {
+                    results.failed.push({
+                        project: project.name || 'Unknown',
+                        errors: validationErrors
+                    });
+                    continue;
+                }
+
+                // Insert into database
+                const [result] = await db.query(
+                    `INSERT INTO projects (name, budget, status, province, city, latitude, longitude) 
+                     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+                    [
+                        filter.clean(project.name),
+                        project.budget,
+                        project.status,
+                        project.province,
+                        project.city,
+                        project.latitude,
+                        project.longitude
+                    ]
+                );
+
+                results.successful.push({
+                    id: result.insertId,
+                    name: project.name
+                });
+
+            } catch (error) {
+                results.failed.push({
+                    project: project.name || 'Unknown',
+                    errors: [error.message]
+                });
+            }
+        }
+
+        res.json({
+            message: 'Import completed',
+            total: projects.length,
+            successful: results.successful.length,
+            failed: results.failed.length,
+            details: results
+        });
+
+    } catch (error) {
+        console.error('Import error:', error);
+        res.status(500).json({
+            error: 'Failed to process import',
+            message: error.message
+        });
+    }
+});
+
 // === Table 1: Projects ===
 
 // ~~~ queries ~~~
@@ -194,7 +386,7 @@ app.post('/api/companies', async (req, res) => {
     try {
         const [result] = await db.query(
             `INSERT INTO companies (name, province, city, email, number) 
-             VALUES (?, ?, ?, ?, ?)`, 
+             VALUES (?, ?, ?, ?, ?)`,
             [name, province, city, email, number]
         );
 
