@@ -162,11 +162,8 @@ app.get('/api/stats', async (req, res) => {
             SELECT 
                 COUNT(*) AS total_projects,
                 SUM(budget) AS total_budget,
-                AVG(budget) AS average_budget,
-                province,
-                status
+                AVG(budget) AS average_budget
             FROM projects
-            GROUP BY province, status
         `);
 
         res.json(rows);
@@ -197,7 +194,7 @@ app.post('/api/companies', async (req, res) => {
     try {
         const [result] = await db.query(
             `INSERT INTO companies (name, province, city, email, number) 
-             VALUES (?, ?, ?, ?, ?)`,
+             VALUES (?, ?, ?, ?, ?)`, 
             [name, province, city, email, number]
         );
 
@@ -236,19 +233,19 @@ app.get('/api/assignments', async (req, res) => {
     try {
         const [rows] = await db.query(`
             SELECT 
-                a.id,
-                a.project_id,
-                a.company_id,
-                a.created_at,
-                p.name AS project_name,
-                p.status AS project_status,
-                p.province AS project_province,
-                p.city AS project_city,
-                c.name AS company_name
-            FROM assignments a
-            JOIN projects p ON a.project_id = p.id
-            JOIN companies c ON a.company_id = c.id
-            ORDER BY a.created_at DESC
+                assignments.id,
+                assignments.project_id,
+                assignments.company_id,
+                assignments.created_at,
+                projects.name AS project_name,
+                projects.status AS project_status,
+                projects.province AS project_province,
+                projects.city AS project_city,
+                companies.name AS company_name
+            FROM assignments
+            JOIN projects ON assignments.project_id = projects.id
+            JOIN companies ON assignments.company_id = companies.id
+            ORDER BY assignments.created_at DESC
         `);
         res.json(rows);
     } catch (err) {
