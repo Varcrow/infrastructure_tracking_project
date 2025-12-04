@@ -113,51 +113,6 @@ app.get('/api/projects', async (req, res) => {
     }
 });
 
-// Get project by id
-app.get('/api/projects/:id', async (req, res) => {
-    try {
-        const [rows] = await db.query("SELECT * FROM projects WHERE id = ?", [req.params.id]);
-        if (rows.length === 0) return res.status(404).json({ error: "Project not found" });
-        res.json(rows[0]);
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-});
-
-// Get projects by province
-app.get('/api/projects/province/:province', async (req, res) => {
-    try {
-        const [rows] = await db.query("SELECT * FROM projects WHERE province = ?", [req.params.province]);
-        res.json(rows);
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-});
-
-// Get projects by status
-app.get('/api/projects/status/:status', async (req, res) => {
-    try {
-        const [rows] = await db.query("SELECT * FROM projects WHERE status = ?", [req.params.status]);
-        res.json(rows);
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-});
-
-// Get projects between a certain budget range
-app.get('/api/projects/budget/range', async (req, res) => {
-    const { min = 0, max = 999999999 } = req.query;
-    try {
-        const [rows] = await db.query(
-            "SELECT * FROM projects WHERE budget BETWEEN ? AND ?",
-            [min, max]
-        );
-        res.json(rows);
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-});
-
 // ~~~ table manip ~~~
 
 app.post('/api/projects', async (req, res) => {
@@ -231,27 +186,6 @@ app.get('/api/companies', async (req, res) => {
     }
 });
 
-// Get company by id
-app.get('/api/company/:id', async (req, res) => {
-    try {
-        const [rows] = await db.query("SELECT * FROM companies WHERE id = ?", [req.params.id]);
-        if (rows.length === 0) return res.status(404).json({ error: "Company not found" });
-        res.json(rows[0]);
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-});
-
-// Get company by province
-app.get('/api/company/province/:province', async (req, res) => {
-    try {
-        const [rows] = await db.query("SELECT * FROM companies WHERE province = ?", [req.params.province]);
-        res.json(rows);
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-});
-
 // ~~~ table manip ~~~
 
 app.post('/api/companies', async (req, res) => {
@@ -313,80 +247,6 @@ app.get('/api/assignments', async (req, res) => {
             JOIN companies c ON a.company_id = c.id
             ORDER BY a.created_at DESC
         `);
-        res.json(rows);
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-});
-
-// Get assignment by id
-app.get('/api/assignments/:id', async (req, res) => {
-    try {
-        const [rows] = await db.query(`
-            SELECT 
-                a.id,
-                a.project_id,
-                a.company_id,
-                a.created_at,
-                p.name AS project_name,
-                p.budget AS project_budget,
-                p.status AS project_status,
-                c.name AS company_name
-            FROM assignments a
-            JOIN projects p ON a.project_id = p.id
-            JOIN companies c ON a.company_id = c.id
-            WHERE a.id = ?
-        `, [req.params.id]);
-
-        if (rows.length === 0) return res.status(404).json({ error: "Assignment not found" });
-        res.json(rows[0]);
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-});
-
-// Get all assignments for a specific project
-app.get('/api/assignments/project/:project_id', async (req, res) => {
-    try {
-        const [rows] = await db.query(`
-            SELECT 
-                a.id,
-                a.project_id,
-                a.company_id,
-                a.created_at,
-                c.name AS company_name,
-                c.province AS company_province,
-                c.city AS company_city,
-                c.email AS company_email,
-                c.number AS company_number
-            FROM assignments a
-            JOIN companies c ON a.company_id = c.id
-            WHERE a.project_id = ?
-        `, [req.params.project_id]);
-        res.json(rows);
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-});
-
-// Get all assignments for a specific company
-app.get('/api/assignments/company/:company_id', async (req, res) => {
-    try {
-        const [rows] = await db.query(`
-            SELECT 
-                a.id,
-                a.project_id,
-                a.company_id,
-                a.created_at,
-                p.name AS project_name,
-                p.budget AS project_budget,
-                p.status AS project_status,
-                p.province AS project_province,
-                p.city AS project_city
-            FROM assignments a
-            JOIN projects p ON a.project_id = p.id
-            WHERE a.company_id = ?
-        `, [req.params.company_id]);
         res.json(rows);
     } catch (err) {
         res.status(500).json({ error: err.message });
